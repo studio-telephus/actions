@@ -56,18 +56,23 @@ runs:
         known_hosts: unnecessary
 
     - name: Adding Known Hosts
+      shell: bash
       run: ssh-keyscan -p ${{ inputs.SshPort}} -H ${{ inputs.SshHost }}  >> ~/.ssh/known_hosts
 
     - name: Copy default variables
+      shell: bash
       run: cp ./variables/default.tfvars ./components/host/lxd/default.auto.tfvars
 
     - name: Install rsync
+      shell: bash
       run: sudo apt-get install rsync
 
     - name: Create remote folder if not exists
+      shell: bash
       run: ssh -p ${{ inputs.SshPort }} ${{ inputs.SshUser }}@${{ inputs.SshHost }} "mkdir -p ${{ inputs.RemotePath }}"
 
     - name: Copy with rsync to remote
+      shell: bash
       run: rsync -avz -e "ssh -p ${{ inputs.SshPort }}" ${{ inputs.LocalPath }} ${{ inputs.SshUser }}@${{ inputs.SshHost }}:${{ inputs.RemotePath }}
 
     - name: Terraform Plan
