@@ -5,6 +5,18 @@ description: >
   Then does Terraform Apply if not in a dry-run mode.
 
 inputs:
+  SshHost:
+    description: SSH Host
+    required: true
+  SshPort:
+    description: SSH port
+    required: true
+  SshUser:
+    description: SSH Username
+    required: true
+  SshPrivateKey:
+    description: SSH private key
+    required: true
   LocalPath:
     description: Source folder of the files to copy to remote server
     required: true
@@ -40,11 +52,11 @@ runs:
     - name: Install SSH Key
       uses: shimataro/ssh-key-action@v2
       with:
-        key: ${{ secrets.GHA_SSH_PRIVATE_KEY }}
+        key: ${{ inputs.SshPrivateKey }}
         known_hosts: unnecessary
 
     - name: Adding Known Hosts
-      run: ssh-keyscan -p ${{ secrets.TEL_SSH_PORT}} -H ${{ secrets.TEL_SSH_HOST }}  >> ~/.ssh/known_hosts
+      run: ssh-keyscan -p ${{ inputs.SshPort}} -H ${{ inputs.SshHost }}  >> ~/.ssh/known_hosts
 
     - name: Copy default variables
       run: cp ./variables/default.tfvars ./components/host/lxd/default.auto.tfvars
@@ -53,17 +65,17 @@ runs:
       run: sudo apt-get install rsync
 
     - name: Create remote folder if not exists
-      run: ssh -p ${{ secrets.TEL_SSH_PORT }} ${{ secrets.TEL_SSH_USER }}@${{ secrets.TEL_SSH_HOST }} "mkdir -p ${{ inputs.RemotePath }}"
+      run: ssh -p ${{ inputs.SshPort }} ${{ inputs.SshUser }}@${{ inputs.SshHost }} "mkdir -p ${{ inputs.RemotePath }}"
 
     - name: Copy with rsync to remote
-      run: rsync -avz -e "ssh -p ${{ secrets.TEL_SSH_PORT }}" ${{ inputs.LocalPath }} ${{ secrets.TEL_SSH_USER }}@${{ secrets.TEL_SSH_HOST }}:${{ inputs.RemotePath }}
+      run: rsync -avz -e "ssh -p ${{ inputs.SshPort }}" ${{ inputs.LocalPath }} ${{ inputs.SshUser }}@${{ inputs.SshHost }}:${{ inputs.RemotePath }}
 
     - name: Terraform Plan
       uses: fifsky/ssh-action@v0.0.6
       with:
-        host: ${{ secrets.TEL_SSH_HOST }}
-        user: ${{ secrets.TEL_SSH_USER }}
-        key: ${{ secrets.GHA_SSH_PRIVATE_KEY }}
+        host: ${{ inputs.SshHost }}
+        user: ${{ inputs.SshUser }}
+        key: ${{ inputs.SshPrivateKey }}
         command: |
           cd ${{ inputs.RemotePath }}
           terraform init -upgrade
@@ -73,9 +85,9 @@ runs:
       uses: fifsky/ssh-action@v0.0.6
       if: ${{ inputs.DryRun == 'false' }}
       with:
-        host: ${{ secrets.TEL_SSH_HOST }}
-        user: ${{ secrets.TEL_SSH_USER }}
-        key: ${{ secrets.GHA_SSH_PRIVATE_KEY }}
+        host: ${{ inputs.SshHost }}
+        user: ${{ inputs.SshUser }}
+        key: ${{ inputs.SshPrivateKey }}
         command: |
           cd ${{ inputs.RemotePath }}
           terraform apply "tf-plan.out"
