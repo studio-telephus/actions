@@ -72,10 +72,6 @@ runs:
       shell: bash
       run: ssh -p ${{ inputs.SshPort }} ${{ inputs.SshUser }}@${{ inputs.SshHost }} "mkdir -p ${{ inputs.RemotePath }}"
 
-    - name: Copy with rsync to remote
-      shell: bash
-      run: rsync -avz -e "ssh -p ${{ inputs.SshPort }}" ${{ inputs.LocalPath }} ${{ inputs.SshUser }}@${{ inputs.SshHost }}:${{ inputs.RemotePath }}
-
     - name: Terraform Destroy
       uses: fifsky/ssh-action@v0.0.6
       if: ${{ inputs.Destroy == 'true' }}
@@ -90,6 +86,10 @@ runs:
           cd ${{ inputs.RemotePath }}
           terraform destroy -auto-approve
         args: "-tt -vvv"
+
+    - name: Copy with rsync to remote
+      shell: bash
+      run: rsync -avz -e "ssh -p ${{ inputs.SshPort }}" ${{ inputs.LocalPath }} ${{ inputs.SshUser }}@${{ inputs.SshHost }}:${{ inputs.RemotePath }}
 
     - name: Terraform Plan
       uses: fifsky/ssh-action@v0.0.6
