@@ -1,0 +1,119 @@
+name: ssh-terraform
+description: >
+  Copies all files from current working dir to a remote ssh server.
+  Then logs in to the ssh server & creates a Terraform plan.
+  Then does Terraform Apply if not in a dry-run mode.
+
+inputs:
+  SshHost:
+    description: SSH Host
+    required: true
+  SshPort:
+    description: SSH port
+    required: true
+  SshUser:
+    description: SSH Username
+    required: true
+  SshPrivateKey:
+    description: SSH private key
+    required: true
+  LocalPath:
+    description: Source folder of the files to copy to remote server
+    required: false
+    default: '.'
+  RemotePath:
+    description: Target folder on the remote server
+    required: true
+  DryRun:
+    description: Instructs TF to Plan & Apply or just do the Plan
+    required: false
+    default: 'false'
+  Destroy:
+    description: Instructs TF to Destroy resources first
+    required: false
+    default: 'false'
+  Token:
+    required: false
+    description: >
+      Personal access token (PAT) used to fetch the repository. The PAT is configured
+      with the local git config, which enables your scripts to run authenticated git
+      commands. The post-job step removes the PAT.
+      Use a service account with the least permissions necessary.
+      Also when generating a new PAT, select the least scopes necessary.
+      [Learn more about creating and using encrypted secrets](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/creating-and-using-encrypted-secrets)
+    default: ${{ github.token }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+        ref: ${{ github.head_ref }}
+        token: ${{ inputs.Token }}
+
+    - name: Install SSH Key
+      uses: shimataro/ssh-key-action@v2
+      with:
+        key: ${{ inputs.SshPrivateKey }}
+        known_hosts: unnecessary
+
+    - name: Adding Known Hosts
+      shell: bash
+      run: ssh-keyscan -p ${{ inputs.SshPort}} -H ${{ inputs.SshHost }}  >> ~/.ssh/known_hosts
+
+    - name: Install rsync
+      shell: bash
+      run: sudo apt-get install rsync
+
+    - name: Create remote folder if not exists
+      shell: bash
+      run: ssh -p ${{ inputs.SshPort }} ${{ inputs.SshUser }}@${{ inputs.SshHost }} "mkdir -p ${{ inputs.RemotePath }}"
+
+    - name: Copy with rsync to remote
+      shell: bash
+      run: rsync -avz -e "ssh -p ${{ inputs.SshPort }}" ${{ inputs.LocalPath }} ${{ inputs.SshUser }}@${{ inputs.SshHost }}:${{ inputs.RemotePath }}
+
+    - name: Terraform Destroy
+      uses: fifsky/ssh-action@v0.0.6
+      if: ${{ inputs.Destroy == 'true' }}
+      with:
+        host: ${{ inputs.SshHost }}
+        user: ${{ inputs.SshUser }}
+        key: ${{ inputs.SshPrivateKey }}
+        command: |
+          if [ -f ~/.bashrc ]; then
+              . ~/.bashrc
+          fi
+          cd ${{ inputs.RemotePath }}
+          terraform destroy -auto-approve
+        args: "-tt -vvv"
+
+    - name: Terraform Plan
+      uses: fifsky/ssh-action@v0.0.6
+      with:
+        host: ${{ inputs.SshHost }}
+        user: ${{ inputs.SshUser }}
+        key: ${{ inputs.SshPrivateKey }}
+        command: |
+          if [ -f ~/.bashrc ]; then
+              . ~/.bashrc
+          fi
+          cd ${{ inputs.RemotePath }}
+          terraform init -upgrade
+          terraform plan -out tf-plan.out
+        args: "-tt"
+
+    - name: Terraform Apply
+      uses: fifsky/ssh-action@v0.0.6
+      if: ${{ inputs.DryRun == 'false' }}
+      with:
+        host: ${{ inputs.SshHost }}
+        user: ${{ inputs.SshUser }}
+        key: ${{ inputs.SshPrivateKey }}
+        command: |
+          cd ${{ inputs.RemotePath }}
+          terraform apply "tf-plan.out"
+        args: "-tt"
