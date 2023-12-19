@@ -84,7 +84,9 @@ runs:
               . ~/.bashrc
           fi
           cd ${{ inputs.RemotePath }}
-          terraform destroy -auto-approve
+          if [ -f terraform.tfstate ]; then
+              terraform destroy -auto-approve
+          fi
         args: "-tt -vvv"
 
     - name: Copy with rsync to remote
