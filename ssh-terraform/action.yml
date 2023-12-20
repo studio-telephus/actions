@@ -85,6 +85,7 @@ runs:
           fi
           cd ${{ inputs.RemotePath }}
           if [ -f terraform.tfstate ]; then
+              terraform init
               terraform destroy -auto-approve
           fi
         args: "-tt -vvv"
