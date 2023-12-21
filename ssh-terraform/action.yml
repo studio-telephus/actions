@@ -91,7 +91,7 @@ runs:
 
     - name: Cleanup previous fileset
       shell: bash
-      run: ssh -p ${{ inputs.SshPort }} ${{ inputs.SshUser }}@${{ inputs.SshHost }} 'ls -A1 | grep -Ev ".terraform|.terraform.lock.hcl|terraform.tfstate|terraform.tfstate.backup" | xargs rm -rf'
+      run: ssh -p ${{ inputs.SshPort }} ${{ inputs.SshUser }}@${{ inputs.SshHost }} 'cd ${{ inputs.RemotePath }} && ls -A1 | grep -Ev ".terraform|.terraform.lock.hcl|terraform.tfstate|terraform.tfstate.backup" | xargs rm -rf'
 
     - name: Copy with rsync to remote
       shell: bash
