@@ -24,6 +24,10 @@ inputs:
   RemotePath:
     description: Target folder on the remote server
     required: true
+  BackendConfig:
+    description: Backend config in JSON
+    required: false
+    default: ''
   DryRun:
     description: Instructs TF to Plan & Apply or just do the Plan
     required: false
@@ -66,7 +70,7 @@ runs:
 
     - name: Install rsync
       shell: bash
-      run: sudo apt-get install rsync
+      run: sudo apt-get install rsync jq
 
     - name: Create remote folder if not exists
       shell: bash
@@ -98,7 +102,7 @@ runs:
       run: |
         rsync -avz -e "ssh -p ${{ inputs.SshPort }}" ${{ inputs.LocalPath }} ${{ inputs.SshUser }}@${{ inputs.SshHost }}:${{ inputs.RemotePath }}
 
-    - name: Terraform Plan
+    - name: Terraform Plan & Apply
       uses: fifsky/ssh-action@v0.0.6
       with:
         host: ${{ inputs.SshHost }}
@@ -109,18 +113,19 @@ runs:
               . ~/.bashrc
           fi
           cd ${{ inputs.RemotePath }}
-          terraform init -upgrade
-          terraform plan -out .terraform/tf-plan.out
-        args: "-tt"
 
-    - name: Terraform Apply
-      uses: fifsky/ssh-action@v0.0.6
-      if: ${{ inputs.DryRun == 'false' }}
-      with:
-        host: ${{ inputs.SshHost }}
-        user: ${{ inputs.SshUser }}
-        key: ${{ inputs.SshPrivateKey }}
-        command: |
-          cd ${{ inputs.RemotePath }}
-          terraform apply ".terraform/tf-plan.out"
+          if [ -z "${{ inputs.BackendConfig }}" ]; then
+            terraform init -upgrade
+          else
+            jq -r 'to_entries[]|"\(.key)=\"\(.value)\""'  <<< '${{ inputs.BackendConfig }}' > config.tfbackend
+            terraform init -upgrade -backend-config=config.tfbackend
+          fi
+
+          terraform plan -out .terraform/tf-plan.out
+
+          if [ "${{ inputs.DryRun }}" = "false" ]; then
+              terraform apply ".terraform/tf-plan.out"
+          else
+              echo "Running in dry-run mode, skipping apply."
+          fi
         args: "-tt"
