@@ -28,6 +28,10 @@ inputs:
     description: Backend config in JSON
     required: false
     default: ''
+  Tfvars:
+    description: Tfvars
+    required: false
+    default: ''
   DryRun:
     description: Instructs TF to Plan & Apply or just do the Plan
     required: false
@@ -119,6 +123,10 @@ runs:
           else
             jq -r 'to_entries[]|"\(.key)=\"\(.value)\""'  <<< '${{ inputs.BackendConfig }}' > config.tfbackend
             terraform init -upgrade -backend-config=config.tfbackend
+          fi
+
+          if [ ! -z "${{ inputs.Tfvars }}" ]; then
+            echo '${{ inputs.Tfvars }}' > github-action.auto.tfvars
           fi
 
           terraform plan -out .terraform/tf-plan.out
