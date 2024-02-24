@@ -129,10 +129,10 @@ runs:
             echo '${{ inputs.Tfvars }}' > github-action.auto.tfvars
           fi
 
-          terraform plan -out .terraform/tf-plan.out
+          terraform plan -out .terraform/plan.out
 
           if [ "${{ inputs.DryRun }}" = "false" ]; then
-              terraform apply ".terraform/tf-plan.out"
+              terraform apply ".terraform/plan.out"
           else
               echo "Running in dry-run mode, skipping apply."
           fi
